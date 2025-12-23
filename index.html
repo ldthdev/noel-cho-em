@@ -76,7 +76,7 @@
     </div>
 
     <!-- Vandiep -->
-    <div id="copyright">© by vandiep</div>
+    <div id="copyright">diep</div>
 
     <div id="canvas-container"></div>
     <video class="input_video" style="display:none"></video>
@@ -91,8 +91,10 @@
         bgMusic.loop = true; bgMusic.volume = 1.0;
 
         const loader = new THREE.TextureLoader();
-        const photoFiles = ['./image1.jpeg', './image2.jpeg', './image3.jpeg', './image4.jpeg', './image5.jpeg'];
+        const photoFiles = ['./image1.jpeg', './image2.jpeg', './image3.jpeg', './image4.jpeg', './image5.jpeg', './image6.jpeg', './image7.jpeg', './image8.jpeg', './image9.jpeg', './image10.jpeg', './image11.jpeg', './image12.jpeg', './image13.jpeg', './image14.jpeg', './image15.jpeg', './image16.jpeg'];
         const photoTextures = [];
+        const frameTexture = loader.load('./frame.png');
+        frameTexture.colorSpace = THREE.SRGBColorSpace;
         photoFiles.forEach((f, i) => photoTextures[i] = loader.load(f));
 
         function createCustomTexture(type) {
@@ -295,12 +297,96 @@
             tex.needsUpdate = true;
             return tex;
         }
+        function createChristmasBorderTexture(time = 0) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0,0,256,256);
+
+            // ======================
+            // GLOW NỀN
+            // ======================
+            const glow = ctx.createRadialGradient(128,128,40,128,128,140);
+            glow.addColorStop(0, 'rgba(255,255,255,0.7)');
+            glow.addColorStop(0.5, 'rgba(180,220,255,0.35)');
+            glow.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = glow;
+            ctx.fillRect(0,0,256,256);
+
+            // ======================
+            // LÁ THÔNG
+            // ======================
+            ctx.strokeStyle = '#0B6B2E';
+            ctx.lineWidth = 12;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(20,120,60,0.8)';
+            ctx.strokeRect(24,24,208,208);
+
+            // lá thông nhỏ
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#1E8F4F';
+            for (let i = 0; i < 120; i++) {
+                const x = Math.random()*256;
+                const y = Math.random()*256;
+                const len = 4 + Math.random()*6;
+                ctx.beginPath();
+                ctx.moveTo(x,y);
+                ctx.lineTo(x + len, y - len);
+                ctx.stroke();
+            }
+
+            // ======================
+            // TUYẾT
+            // ======================
+            ctx.shadowBlur = 0;
+            for (let i = 0; i < 40; i++) {
+                ctx.beginPath();
+                ctx.arc(
+                    Math.random()*256,
+                    Math.random()*256,
+                    Math.random()*2 + 1,
+                    0, Math.PI*2
+                );
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
+                ctx.fill();
+            }
+
+            // ======================
+            // ĐÈN NOEL NHẤP NHÁY
+            // ======================
+            const lights = [
+                '#FF5252', '#FFD700', '#4CAF50', '#40C4FF'
+            ];
+
+            for (let i = 0; i < 20; i++) {
+                const angle = (i / 20) * Math.PI * 2;
+                const r = 105;
+                const x = 128 + Math.cos(angle) * r;
+                const y = 128 + Math.sin(angle) * r;
+
+                const pulse = 0.6 + 0.4 * Math.sin(time * 4 + i);
+                ctx.beginPath();
+                ctx.arc(x,y,5 + pulse*2,0,Math.PI*2);
+                ctx.fillStyle = lights[i % lights.length];
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.fill();
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
 
 
         let scene, camera, renderer;
         let groupGold, groupRed, groupGift; 
         let photoMeshes = [];    
         let titleMesh, starMesh, loveMesh;
+        let loveText;
         
         let state = 'TREE'; 
         let selectedIndex = 0;
@@ -336,9 +422,12 @@
 
 
 
+           
 
             createPhotos();
             createDecorations();
+            loveText = createLoveMessage();
+            scene.add(loveText);
             animate();
         }
 
@@ -623,23 +712,69 @@ pTreeTargets.push(xt, yt, zt);
     return points;
 }
 
+function createPhotos() {
+    photoFiles.forEach((file, i) => {
 
-        function createPhotos() {
-            const geo = new THREE.PlaneGeometry(8, 8);
-            const borderGeo = new THREE.PlaneGeometry(9, 9); 
-            const borderMat = new THREE.MeshBasicMaterial({ color: 0xFFD700 }); 
+        const texture = photoTextures[i];
+        texture.colorSpace = THREE.SRGBColorSpace;
 
-            for(let i=0; i<5; i++) {
-                const mat = new THREE.MeshBasicMaterial({ map: photoTextures[i], side: THREE.DoubleSide });
-                const mesh = new THREE.Mesh(geo, mat);
-                const border = new THREE.Mesh(borderGeo, borderMat);
-                border.position.z = -0.1; 
-                mesh.add(border);
-                mesh.visible = false; mesh.scale.set(0,0,0);
-                scene.add(mesh);
-                photoMeshes.push(mesh);
-            }
-        }
+        const img = texture.image;
+        if (!img || !img.width) return;
+
+        // ============================
+        // TỶ LỆ ẢNH GỐC
+        // ============================
+        const aspect = img.width / img.height;
+        const photoHeight = 8;
+        const photoWidth  = photoHeight * aspect;
+
+        // ============================
+        // MESH ẢNH
+        // ============================
+        const photoGeo = new THREE.PlaneGeometry(photoWidth, photoHeight);
+        const photoMat = new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            depthWrite: false
+        });
+        const photoMesh = new THREE.Mesh(photoGeo, photoMat);
+
+        // ============================
+        // FRAME PNG GIÁNG SINH
+        // ============================
+        const frameScale = 1.18; // chỉnh viền dày/mỏng ở đây ⭐
+
+        const frameGeo = new THREE.PlaneGeometry(
+            photoWidth * frameScale,
+            photoHeight * frameScale
+        );
+
+        const frameMat = new THREE.MeshBasicMaterial({
+            map: frameTexture,
+            transparent: true,
+            depthWrite: false,
+            depthTest: false
+        });
+
+        const frameMesh = new THREE.Mesh(frameGeo, frameMat);
+        frameMesh.position.z = 0.15; // nằm sau ảnh
+
+        // gắn frame vào ảnh
+        photoMesh.add(frameMesh);
+
+        // ============================
+        // INIT
+        // ============================
+        photoMesh.visible = false;
+        photoMesh.scale.set(0, 0, 0);
+
+        scene.add(photoMesh);
+        photoMeshes.push(photoMesh);
+    });
+}
+
+
+
 
         function createDecorations() {
             // MERRY CHRISTMAS Vandiep
@@ -689,6 +824,88 @@ pTreeTargets.push(xt, yt, zt);
             loveMesh.visible = false;
             scene.add(loveMesh);
         }
+        
+
+        function createLoveMessage() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 2048;
+                canvas.height = 1024;
+                const ctx = canvas.getContext('2d');
+
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+
+                // nền trong suốt
+                ctx.fillStyle = 'rgba(0,0,0,0)';
+                ctx.fillRect(0,0,canvas.width,canvas.height);
+
+                // font nghệ thuật
+                ctx.font = 'italic 72px "Times New Roman", serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // glow nhẹ
+                ctx.shadowColor = 'rgba(255,200,200,0.8)';
+                ctx.shadowBlur = 25;
+
+                ctx.fillStyle = '#FFDDE5';
+
+                const lines = [
+                    'Cảm ơn em đã đến bên anh và yêu anh,',
+                    'anh mong rằng chúng ta sẽ ở bên nhau',
+                    'thật nhiều mùa Giáng Sinh nữa nhé ❤️',
+                    '- Bí Ngô iu em! -'
+                ];
+
+                lines.forEach((line, i) => {
+                    ctx.fillText(
+                        line,
+                        canvas.width / 2,
+                        canvas.height / 2 - 80 + i * 90
+                    );
+                });
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.needsUpdate = true;
+                texture.colorSpace = THREE.SRGBColorSpace;
+
+                const mat = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 1.0,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    depthTest: false
+                });
+
+                const geo = new THREE.PlaneGeometry(40, 20);
+                const mesh = new THREE.Mesh(geo, mat);
+
+                // 📍 phía SAU cây thông
+                mesh.position.set(CONFIG.treeBaseRadius + 25, 8, -5);
+                mesh.rotation.y = -0.15;
+                mat.depthTest = false;
+                mesh.renderOrder = 999;
+
+
+
+                mesh.visible = true;
+
+                return mesh;
+            }
+            function updateLoveTextScale() {
+                if (!loveText || !camera) return;
+
+                const distance = camera.position.z - loveText.position.z;
+                const vFOV = THREE.MathUtils.degToRad(camera.fov);
+                const visibleHeight = 2 * Math.tan(vFOV / 2) * distance;
+
+                // 45 = height gốc của PlaneGeometry
+                const scale = visibleHeight / 45;
+
+                loveText.scale.set(scale, scale, 1);
+            }
+
+
         function createSnowSystem(count, opt = {}) {
             const zRange   = opt.zRange ?? 300;
             const baseSize = opt.baseSize ?? 5;
@@ -829,6 +1046,7 @@ pTreeTargets.push(xt, yt, zt);
                 if(!mesh.material.map && photoTextures[i]) {
                     mesh.material.map = photoTextures[i]; mesh.material.needsUpdate = true;
                 }
+              
             });
 
             if (state === 'TREE') {
@@ -847,7 +1065,9 @@ pTreeTargets.push(xt, yt, zt);
             } else if (state === 'EXPLODE') {
                 titleMesh.visible = false; starMesh.visible = false; loveMesh.visible = false;
                 const baseAngle = groupGold.rotation.y; 
-                const angleStep = (Math.PI * 2) / 5;
+                const count = photoMeshes.length;
+                const angleStep = (Math.PI * 2) / count;
+
                 let bestIdx = 0; let maxZ = -999;
                 photoMeshes.forEach((mesh, i) => {
                     mesh.visible = true;
@@ -883,6 +1103,18 @@ pTreeTargets.push(xt, yt, zt);
             updateSnow(snowMid);
             updateSnow(snowNear);
 
+            if (loveText) {
+
+            if (state === 'EXPLODE') {
+                // tan biến mượt
+                loveText.material.opacity += (0.0 - loveText.material.opacity) * 0.08;
+                loveText.position.y += 0.15; // bay lên nhẹ
+            } else {
+                // hiện lại
+                loveText.material.opacity += (1.0 - loveText.material.opacity) * 0.05;
+                loveText.position.y += (5 - loveText.position.y) * 0.05;
+            }
+            }
 
             renderer.render(scene, camera);
         }
@@ -918,6 +1150,8 @@ pTreeTargets.push(xt, yt, zt);
     }
 
     snow.geometry.attributes.position.needsUpdate = true;
+    updateLoveTextScale();
+
 }
 
 
@@ -974,7 +1208,8 @@ pTreeTargets.push(xt, yt, zt);
         }
 
         window.addEventListener('resize', () => {
-            if(camera) { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+            if(camera) { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); 
+                updateLoveTextScale();}
         });
     </script>
 </body>
